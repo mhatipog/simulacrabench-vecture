@@ -1,0 +1,6 @@
+G1 (neighbour family) vs F5-equivalent, same plan:
+nll_a 0.57619 nll_b 0.57630  delta(b-a logscore) -0.00010  95%CI [-0.00021, -0.00001]  rel -0.02%  respondents 600
+nll_a 0.67582 nll_b 0.66947  delta(b-a logscore) +0.00635  95%CI [+0.00444, +0.00825]  rel 0.94%  respondents 600
+G2 (sharp) vs G1:
+nll_a 0.57630 nll_b 0.57628  delta(b-a logscore) +0.00001  95%CI [-0.00014, +0.00017]  rel 0.00%  respondents 600
+nll_a 0.66947 nll_b 0.66949  delta(b-a logscore) -0.00002  95%CI [-0.00015, +0.00009]  rel -0.00%  respondents 600

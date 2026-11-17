@@ -1,0 +1,29 @@
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Ablations on the three real-survey studies with 95\% respondent-bootstrap intervals (milli-nats per cell, variant minus full stack).}
+\label{tab:ablation-ci}
+\begin{tabular}{lrrr}
+\toprule
+Variant & GSS-1 & GSS-2 & GSS-3 \\
+\midrule
+Full stack (submitted), skill & 0.4209 & 0.4745 & 0.4436 \\
+\midrule
+$-$ LightGBM (direct) & -0.0 {\scriptsize[-0.4,+0.3]} & -0.2 {\scriptsize[-0.5,+0.1]} & \textbf{-0.3} {\scriptsize[-0.6,-0.0]} \\
+$-$ CatBoost & \textbf{-0.9} {\scriptsize[-1.3,-0.6]} & \textbf{-1.5} {\scriptsize[-2.0,-1.0]} & \textbf{-0.5} {\scriptsize[-0.9,-0.2]} \\
+$-$ multitask net & -0.8 {\scriptsize[-1.7,+0.2]} & -0.5 {\scriptsize[-1.7,+0.6]} & +0.1 {\scriptsize[-0.8,+0.9]} \\
+$-$ empirical-Bayes tables & +0.2 {\scriptsize[-0.3,+0.7]} & +0.1 {\scriptsize[-0.3,+0.5]} & +0.2 {\scriptsize[-0.1,+0.5]} \\
+$-$ multinomial logit (direct+cond.) & -0.0 {\scriptsize[-0.4,+0.3]} & +0.1 {\scriptsize[-0.3,+0.5]} & -0.1 {\scriptsize[-0.3,+0.1]} \\
+$-$ kernel neighbours & \textbf{+0.2} {\scriptsize[+0.0,+0.3]} & +0.1 {\scriptsize[-0.0,+0.2]} & +0.2 {\scriptsize[-0.0,+0.3]} \\
+$-$ gate/answer-if-asked LightGBM & \textbf{-0.5} {\scriptsize[-0.9,-0.1]} & \textbf{-0.4} {\scriptsize[-0.7,-0.0]} & \textbf{-0.7} {\scriptsize[-1.2,-0.2]} \\
+no gate factorisation (one stack per item) & \textbf{-4.3} {\scriptsize[-5.4,-3.2]} & \textbf{-4.5} {\scriptsize[-5.5,-3.5]} & \textbf{-3.7} {\scriptsize[-5.0,-2.3]} \\
+no isotonic gate recalibration & \textbf{-0.4} {\scriptsize[-0.7,-0.2]} & \textbf{-0.5} {\scriptsize[-0.6,-0.4]} & \textbf{-0.4} {\scriptsize[-0.8,-0.0]} \\
+no temperature & \textbf{-0.3} {\scriptsize[-0.4,-0.1]} & \textbf{-0.2} {\scriptsize[-0.3,-0.1]} & +0.0 {\scriptsize[-0.1,+0.1]} \\
+pooled weights only (no per-item) & \textbf{-1.4} {\scriptsize[-2.2,-0.6]} & \textbf{-1.0} {\scriptsize[-1.9,-0.1]} & -0.1 {\scriptsize[-0.9,+0.7]} \\
+stack fitted on 950 rows (V81-style) & \textbf{-1.1} {\scriptsize[-1.8,-0.5]} & \textbf{-2.3} {\scriptsize[-3.3,-1.4]} & \textbf{-1.0} {\scriptsize[-1.6,-0.4]} \\
+equal-weight average of experts & \textbf{-58.6} {\scriptsize[-61.1,-56.0]} & \textbf{-65.2} {\scriptsize[-67.5,-62.8]} & \textbf{-64.9} {\scriptsize[-68.1,-61.0]} \\
+single best expert (selected out-of-fold) & \textbf{-13.4} {\scriptsize[-15.2,-11.5]} & \textbf{-12.6} {\scriptsize[-14.5,-10.7]} & \textbf{-11.4} {\scriptsize[-13.5,-9.1]} \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,6 @@
+F7 metric expert on/off gss0:
+nll_a 0.57619 nll_b 0.57624  delta(b-a logscore) -0.00004  95%CI [-0.00011, +0.00002]  rel -0.01%  respondents 600
+F7 metric expert on/off gss1:
+nll_a 0.50867 nll_b 0.50873  delta(b-a logscore) -0.00005  95%CI [-0.00015, +0.00006]  rel -0.01%  respondents 600
+F7 metric expert on/off twin_C:
+nll_a 0.67582 nll_b 0.68418  delta(b-a logscore) -0.00835  95%CI [-0.01016, -0.00650]  rel -1.24%  respondents 600

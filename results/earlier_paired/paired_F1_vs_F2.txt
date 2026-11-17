@@ -1,0 +1,2 @@
+F1_twin_A -> F2_twin_A: nll_a 0.61235 nll_b 0.57409  delta(b-a logscore) +0.03826  95%CI [+0.03338, +0.04330]  rel 6.25%  respondents 600
+F1_gss0 -> F2_gss0: nll_a 0.57681 nll_b 0.57563  delta(b-a logscore) +0.00118  95%CI [+0.00069, +0.00169]  rel 0.20%  respondents 600

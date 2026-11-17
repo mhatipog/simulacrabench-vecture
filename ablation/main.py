@@ -28,7 +28,7 @@ import sb_stack as S
 import sb_eb as EB
 from survey_experts import train_net_with_gates
 
-SEED = 20261111
+SEED = int(os.environ.get('SBA_SEED', 20261111))   # ablation build only
 _HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(_HERE, 'sb_config.json'), encoding='utf-8') as _fh:
     CONFIG = json.load(_fh)

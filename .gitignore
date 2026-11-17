@@ -3,7 +3,7 @@ __pycache__/
 data/
 starter-kit/
 *.zip
-!results/official/*.zip
+!results/official/**/*.zip
 *.aux
 *.log
 *.out

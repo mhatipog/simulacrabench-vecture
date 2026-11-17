@@ -1,0 +1,29 @@
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Paired ablations (Kumo off, identical expert fits): change in mean log score per cell, milli-nats, when the component is removed (negative = it helps; bold: 95\% bootstrap interval excludes 0). GSS: real survey; Gate/Twin: synthetic (Appendix~B).}
+\label{tab:ablation}
+\begin{tabular}{lrrrrrr}
+\toprule
+Variant & GSS-1 & GSS-2 & GSS-3 & Gate-A & Twin & Twin-HH \\
+\midrule
+Full stack (submitted), skill & 0.4209 & 0.4745 & 0.4436 & 0.2242 & 0.2872 & 0.1316 \\
+\midrule
+$-$ LightGBM (direct) & -0.0 & -0.2 & \textbf{-0.3} & -0.0 & \textbf{-0.1} & -0.0 \\
+$-$ CatBoost & \textbf{-0.9} & \textbf{-1.5} & \textbf{-0.5} & -0.4 & -0.3 & -0.2 \\
+$-$ multitask net & -0.8 & -0.5 & +0.1 & \textbf{-2.8} & \textbf{-6.2} & +0.5 \\
+$-$ empirical-Bayes tables & +0.2 & +0.1 & +0.2 & \textbf{-0.5} & \textbf{-0.3} & -0.1 \\
+$-$ multinomial logit (direct+cond.) & -0.0 & +0.1 & -0.1 & \textbf{-2.7} & \textbf{-1.2} & \textbf{-1.6} \\
+$-$ kernel neighbours & \textbf{+0.2} & +0.1 & +0.2 & -0.0 & \textbf{-82.3} & +1.7 \\
+$-$ gate/answer-if-asked LightGBM & \textbf{-0.5} & \textbf{-0.4} & \textbf{-0.7} & +0.0 & +0.0 & \textbf{+0.4} \\
+no gate factorisation (one stack per item) & \textbf{-4.3} & \textbf{-4.5} & \textbf{-3.7} & \textbf{-0.8} & \textbf{-9.1} & \textbf{-4.6} \\
+no isotonic gate recalibration & \textbf{-0.4} & \textbf{-0.5} & \textbf{-0.4} & \textbf{+0.3} & \textbf{-0.8} & \textbf{-0.7} \\
+no temperature & \textbf{-0.3} & \textbf{-0.2} & +0.0 & -0.0 & \textbf{-3.4} & \textbf{-1.0} \\
+pooled weights only (no per-item) & \textbf{-1.4} & \textbf{-1.0} & -0.1 & -0.5 & \textbf{-12.6} & -1.2 \\
+stack fitted on 950 rows (V81-style) & \textbf{-1.1} & \textbf{-2.3} & \textbf{-1.0} & \textbf{-1.0} & \textbf{-3.5} & \textbf{-1.3} \\
+equal-weight average of experts & \textbf{-58.6} & \textbf{-65.2} & \textbf{-64.9} & \textbf{-38.6} & \textbf{-51.5} & +0.4 \\
+single best expert (selected out-of-fold) & \textbf{-13.4} & \textbf{-12.6} & \textbf{-11.4} & \textbf{-18.7} & \textbf{-101.2} & -0.6 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,200 @@
+%% SimulacraBench Technical Report -- team Vecture
+%% Built from the organizers' template (template_original.tex); section skeleton unchanged.
+\documentclass{article}
+%% The public neurips_2026.sty defines the footer track name only for its track
+%% options; the competition template passes [final] alone, so define it here.
+\makeatletter
+\providecommand{\@trackname}{\@neuripsordinal\ Conference on Neural Information Processing Systems (NeurIPS \@neuripsyear). Competition Track: SimulacraBench.}
+\makeatother
+\usepackage[final]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+
+\input{meta.tex}
+
+\newcommand{\teamid}{Vecture}
+\newcommand{\cbox}{$\square$}
+\newcommand{\cboxchecked}{$\boxtimes$}
+
+\title{SimulacraBench Technical Report:\\ Cross-fitted, Gate-factorised Stacking of Small Survey Experts}
+
+\author{%
+  Metin Hatipogullari\\
+  Vecture BV, Belgium\\
+  \texttt{\authoremail}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\begin{tabular}{l}
+\toprule
+\textbf{Team ID:} \teamid \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{abstract}
+We predict a calibrated distribution over every withheld answer of a held-out respondent from that respondent's background (\texttt{GIVEN}) fields. Inside the evaluation container we fit a small, diverse set of experts (LightGBM, CatBoost, a multitask embedding network, empirical-Bayes tables, a multinomial logit and two kernel nearest-neighbour estimators), cross-fit all of them, and stack them per question on out-of-fold predictions. For questions behind skip logic the log score factorises exactly into a ``was it asked'' term and an ``answer if asked'' term; we stack the two separately, each on the rows that inform it, and recalibrate the skip probability by a smoothed isotonic map that is accepted only if it wins a two-way cross-check. A pretrained tabular in-context model (Kumo) enters as a validated blend on UNICEF and World Bank and as a capped, failure-tolerant expert on UNHCR. A budget controller times every expert on the host and chooses folds and experts to fit the wall clock. Test phase (leaderboard, two decimals): skill 0.49 (UNICEF 0.34, World Bank 0.24, UNHCR 0.88). Paired ablations on a public survey and on synthetic mechanism tests attribute the gains to stacking with per-question weights and to the factorised gate.
+\end{abstract}
+
+%% ---------------------------------------------------------------------------
+\section{Method summary}
+\label{sec:method}
+
+\subsection{Method type}
+Components are described in Section~\ref{sec:pipeline}.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{@{}clcl@{}}
+    \toprule
+    \cbox & LLM-simulated respondents (prompting, personas) & \cbox & Fine-tuned language model \\
+    \cbox & Tabular / conditional generative model (e.g.\ VAE, diffusion, GAN, CTGAN) & \cboxchecked & Supervised prediction (GBDT, neural net, linear/GLM) \\
+    \cboxchecked & Bayesian / hierarchical / multilevel model & \cbox & Small-area estimation or post-stratification (e.g.\ MRP) \\
+    \cbox & Reweighting, raking, or calibration of the released sample & \cboxchecked & Imputation / matching / nearest-neighbour \\
+    \cbox & Retrieval over released or external microdata & \cbox & Agent-based or mechanistic simulation \\
+    \cboxchecked & Ensemble or stacking of multiple components & \cboxchecked & Other: pretrained tabular in-context model \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Pipeline}
+\label{sec:pipeline}
+One \texttt{predict(frame, schema)} call per instrument. (i) Encode \texttt{GIVEN} fields; take labels from visible rows only. (ii) Probe every expert's cost on this host and pick the largest plan (expert set, $K\in\{2,\dots,5\}$ folds) that fits this call's share of the wall clock. (iii) Cross-fit: fit each expert $K$ times and predict its held-out fold, giving out-of-fold (OOF) predictions for every visible row, then once on all visible rows to predict the scored rows. (iv) Stack per question on the OOF predictions; for gated questions stack the gate and the answer separately (\S\ref{sec:agg}). (v) Recalibrate gate probabilities (\S\ref{sec:post}). (vi) Kumo: on UNICEF and World Bank a validated mixture with the stack; on UNHCR a cross-fitted expert inside the stack, time-capped, whose failure is logged and leaves the stack unchanged. Components marked above: \emph{supervised} = LightGBM~\cite{ke2017lightgbm}, CatBoost~\cite{prokhorenkova2018catboost}, network, logit; \emph{Bayesian} = empirical-Bayes smoothed tables; \emph{nearest-neighbour} = kernel matching on the background block; \emph{stacking} = constrained per-question stacking~\cite{wolpert1992stacked,breiman1996stacked} with cross-fitting~\cite{chernozhukov2018double}; \emph{other} = Kumo~\cite{kumo2026}.
+
+\subsection{Inputs and feature construction}
+Only \texttt{GIVEN} fields are features: every scored respondent has them and nothing else, so answers to one question cannot inform another at prediction time. Fields are integer-coded from the schema's option list; banded fields (``6-10'', ``25-34'') are also given as numbers to LightGBM, plus totals over count fields that share an option list (household roster). Question text, weights and row identifiers are not used.
+
+\subsection{Model or simulator}
+Experts, each producing a distribution over a question's options (including the final ``not asked'' sentinel for gated questions): \emph{direct} LightGBM and CatBoost multiclass models per question; a multitask network (field embeddings, two 256-unit layers, one softmax head per question plus a gate head); a multinomial logit for all questions in one linear map; empirical-Bayes tables choosing between a one-field table, a coarse two-field table and a tempered naive-Bayes combination on an inner split; two kernel neighbour estimators weighting a visible row by $\beta^{d}$, $d$ = number of differing \texttt{GIVEN} fields, $\beta\in\{0.1,0.3\}$, smoothed to the marginal. \emph{Gate} experts: one binary LightGBM per distinct skip pattern. \emph{Answer-if-asked} experts: LightGBM and logit fitted on asked rows only. Questions are treated as conditionally independent given \texttt{GIVEN}, which is exact for this task's per-cell score. Hyperparameters are in Appendix~\ref{app:config}.
+
+\subsection{Fitting, training, or prompting}
+Everything is fitted inside the container on the visible rows of the frame it receives (TRAIN in Development, TRAIN+DEV in Test); no model is trained offline except Kumo, used as released. Data-chosen settings (table type, network epochs by early stopping on a 12\% split) are chosen inside training folds. Development of the method used the Development leaderboard and the public proxy data of Table~\ref{tab:external}; no hidden labels or leaderboard probing were used.
+
+\subsection{Prediction and aggregation}
+\label{sec:agg}
+For an ungated question, $p=\sum_m w_m p_m + w_0\,\pi$ with $\pi$ the visible marginal and $w$ on the simplex. For a gated question with sentinel probability $g$ and answer distribution $c$, the cell log loss is $-\log g$ if skipped and $-\log(1-g)-\log c_y$ if asked; the two terms share no parameters, so the gate stack (every expert's sentinel probability, the binary gate model, the marginal skip rate) is fitted on all rows and the answer stack (renormalised non-sentinel parts, asked-only experts, asked marginal) on asked rows only. Weights minimise the floored OOF log loss by SLSQP with a quadratic pull toward weights pooled over the instrument (penalty $0.004$, $0.02$ for answer stacks with $\le 400$ asked rows); a temperature $T\in\{0.8,\dots,1.5\}$ is then chosen per question.
+
+\subsection{Post-processing and calibration (if applicable)}
+\label{sec:post}
+A convex blend cannot be sharper than its sharpest member, while structurally determined skips deserve near-certain gates. We fit an isotonic map from the stacked OOF gate probability to the observed skip indicator; each block of $n$ rows with mean input $x$ and rate $r$ is smoothed to $(nr+0.5+x)/(n+2)$, so it is never 0 or 1. The map is used for a question only if it lowers the loss in a two-way cross-check on disjoint halves of the OOF rows. Declared gates are never imposed: the organizers report gate/data agreement as low as 0.29 for UNHCR, and an earlier entry of ours that forced declared gates fell from 0.85 to 0.56 UNHCR skill in Development. Outputs are clipped at $10^{-9}$ and renormalised.
+
+%% ---------------------------------------------------------------------------
+\section{Models, data, and compute}
+\label{sec:resources}
+
+\paragraph{Pretrained models and off-the-shelf components.} Table~\ref{tab:models} lists every component with non-trivial modelling content.
+\begin{table}[h]
+  \centering
+  \small
+  \caption{Pretrained models and off-the-shelf components.}
+  \label{tab:models}
+  \begin{tabular}{lll}
+    \toprule
+    Component & Version / checkpoint & Role in pipeline  \\
+    \midrule
+    \texttt{nvidia/Kumo-Tabular} via \texttt{structured-data-models} & 0.2.1; \texttt{small}, \texttt{large} & in-context expert (\S\ref{sec:pipeline}) \\
+    LightGBM & 4.6.0 & direct, gate, answer experts \\
+    CatBoost & 1.2.8 & direct expert \\
+    PyTorch, SciPy (SLSQP), NumPy & container versions & network, logit, stacking \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Data.} The SimulacraBench TRAIN rows visible in each phase were the only data the submission saw. Development used the Development leaderboard and organizer sandboxes; the public survey in Table~\ref{tab:external} was used only offline to validate design choices.
+
+\begin{table}[h]
+  \centering
+  \small
+  \caption{External datasets used.}
+  \label{tab:external}
+  \begin{tabular}{p{2.6cm}p{4.8cm}p{1.8cm}p{3.4cm}}
+    \toprule
+    Dataset & Source / URL & Size & Use in pipeline \\
+    \midrule
+    General Social Survey 2022 (NORC) & \url{https://gss.norc.org} (public Stata release) & 4,149 resp. & offline validation only; not in the submission \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Compute.} Hosted: one H100, 8 CPUs, 16\,GB, no network; Development limit 900\,s, Test 3,600\,s for all three instruments. Our Development run of this exact archive took 49.1\,s. All local work used one 16-thread CPU workstation; no GPU.
+
+%% ---------------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\subsection{Test-phase leaderboard results}
+\begin{table}[h]
+  \centering
+  \small
+  \caption{Official SimulacraBench results for team \teamid{} (submission archive \texttt{SimulacraBench\_F5\_KumoStackRobust.zip}, SHA-256 \texttt{07e4ba37\ldots c76f75}). Test values are as displayed on the leaderboard (two decimals). Development values are from the scoring output and are noised and bucketed by design.}
+  \label{tab:results}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Split & Skill (Grand Prize) & UNICEF & World Bank & UNHCR \\
+    \midrule
+    Development (13 Nov 2026) & 0.4878 & 0.3499 & 0.2486 & 0.8650 \\
+    Test (submission 1053704, 15 Nov 2026) & 0.49 & 0.34 & 0.24 & 0.88 \\
+    Organizer baseline (crowd marginal; 0 by definition) & 0.00 & 0.00 & 0.00 & 0.00 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Breakdown by population, survey, or question type}
+The leaderboard reports one skill per survey. Our weakest surveys are World Bank (0.24) and UNICEF (0.34), which are also flat across teams: in the snapshot of 17 Nov 2026 (46 entries), 38 entries show UNICEF 0.34 and none higher, and 18 show World Bank 0.24, none higher. Differences between leading entries are almost entirely on UNHCR, where 16 entries show 0.88 or 0.89. In Development, UNHCR moved up one bucket when the kernel neighbour experts were added, and World Bank flipped between adjacent buckets with byte-identical code (Appendix~B).
+
+\subsection{Ablations on proxy data (not leaderboard numbers)}
+\label{sec:ablation}
+\input{ablation_main.tex}
+\input{ablation_text.tex}
+
+%% ---------------------------------------------------------------------------
+\section{Reproducibility}
+\label{sec:repro}
+
+\begin{itemize}[leftmargin=*]
+  \item Code repository: \url{\coderepo} (licence: MIT).
+  \item Commit used for the test-phase submission: \texttt{\codecommit}; the archive's files are in \texttt{submission/}.
+  \item Reproduce the submission file: \texttt{python tools/build\_submission\_zip.py} (byte-identical archive, SHA-256 checked). The platform runs its \texttt{predict()} on the released data; locally: \texttt{python eval/run\_eval.py submission <data> 2}.
+  \item Environment: Python 3.13; \texttt{submission/requirements.txt} pins LightGBM 4.6.0, CatBoost 1.2.8, \texttt{structured-data-models} 0.2.1; PyTorch, SciPy from the hosted image. Weights: \texttt{nvidia/Kumo-Tabular} (public on Hugging Face).
+  \item Ablations and tables: \texttt{eval/ablate\_all.sh}, \texttt{eval/make\_tables.py}.
+\end{itemize}
+
+%% ---------------------------------------------------------------------------
+\section{Limitations}
+\label{sec:limitations}
+
+The method sees only background fields, so skipping driven by unobserved answers stays uncertain. Whether Kumo covered any UNHCR question in the hosted test run is not observable (no logs are returned); our ablations run with Kumo off on CPU. The time-adaptive plan and GPU nondeterminism make reruns hardware-dependent. Proxy evidence comes from one public survey family and synthetic generators.
+
+%% ---------------------------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+%% ---------------------------------------------------------------------------
+\clearpage
+\appendix
+
+\section{Full configuration}
+\label{app:config}
+\input{config_appendix.tex}
+
+\section{(Optional) Additional results}
+\input{additional_results.tex}
+
+\end{document}

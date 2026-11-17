@@ -1,0 +1,26 @@
+These are offline proxy results, not leaderboard numbers. Datasets: GSS-1..3, three studies of 70 questions each from the 2022 General Social Survey (3,000 visible, 600 scored respondents, real skip patterns); Gate-A/B/C, synthetic data on the UNHCR schema whose gates are obeyed at rates 0.29--0.98, with 50\%, 0\% and 50\% of gates determined by background fields (C: the remaining gates obeyed exactly); Twin and Twin-HH, synthetic data in which 39\% of rows re-interview an earlier household in a second round, with roles assigned per row (Twin) or per household (Twin-HH); SB-*, organizer sandboxes at the declared sizes. Builders and seeds are in \texttt{eval/make\_datasets.sh}.
+
+\input{ablation_appendix.tex}
+
+\input{v81_vs_f5.tex}
+
+\begin{table}[h]
+\centering\small
+\caption{Development-phase results of this line (scoring files returned by the platform; noised and bucketed). One displayed step is 0.0156, 0.0202 and 0.0126 nats per cell on UNICEF, World Bank and UNHCR. F4 and F5 scored exactly as F3.}
+\label{tab:devhist}
+\begin{tabular}{llrrrrr}
+\toprule
+Entry & Change & Overall & UNHCR & UNICEF & World Bank & Time \\
+\midrule
+F1 (2 archives) & cross-fitted factorised stack & 0.4764 / 0.4814 & 0.8457 & 0.3499 & 0.2335 / 0.2486 & 30 / 53 s \\
+F3 / F4 / F5 & + kernel neighbours, Kumo on UNHCR & 0.4878 & 0.8650 & 0.3499 & 0.2486 & 34--49 s \\
+F6 & + twin experts & 0.4764 & 0.8457 & 0.3499 & 0.2335 & 23 s \\
+G1 & + kernel family & 0.4814 & 0.8457 & 0.3499 & 0.2486 & 45 s \\
+H1 & + household-grouped folds & 0.4828 & 0.8650 & 0.3499 & 0.2335 & 25 s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The test submission is the F5 archive unchanged: it shares the best Development score with F3 and F4 (identical to every digit), and, unlike F6 and G1, it adds no cross-round matching; H1's paired gain was shown only on a simulator built for that mechanism.
+
+\input{seed_table.tex}

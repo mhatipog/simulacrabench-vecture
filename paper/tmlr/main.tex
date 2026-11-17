@@ -1,0 +1,245 @@
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+% For a de-anonymised preprint use: \usepackage[preprint]{tmlr}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{microtype}
+
+\newtheorem{proposition}{Proposition}
+\newcommand{\nats}{\,nats}
+
+\title{Cross-fitted, Gate-factorised Stacking for Survey Completion,\\ and How Little a Noised Leaderboard Can Tell}
+
+\author{\name Anonymous authors \\ \addr Paper under double-blind review}
+
+\def\month{11}
+\def\year{2026}
+\def\openreview{\url{https://openreview.net/forum?id=XXXX}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Survey completion asks for a calibrated probability distribution over every withheld answer of a held-out respondent, given only that respondent's background fields, and is scored by the log score. We describe a system built for the SimulacraBench 2026 competition: a small, diverse set of experts is fitted inside the evaluation container, cross-fitted, and stacked per question on out-of-fold predictions. For questions behind skip logic we use an exact factorisation of the log score into a gate term and an answer-if-asked term, stack the two separately on the rows that inform them, and recalibrate the gate by a smoothed isotonic map that must win a two-way cross-check. We contribute (i) the method; (ii) a paired ablation protocol that fits every expert once and re-stacks under each variant, so that all comparisons share identical expert predictions; (iii) ablations on three question sets from the 2022 General Social Survey, on synthetic mechanism tests and on the organizers' sandboxes; and (iv) a quantitative account of what the noised and rounded development leaderboard could and could not resolve, with the negative results it hid or produced. One development bucket equals 0.013--0.020\nats per cell, while every real-data improvement we could verify offline was 0.001--0.011\nats per cell; forcing declared skip logic, which improved synthetic data, cut one instrument's development skill from 0.85 to 0.56. The submitted system scored 0.49 test-phase skill (UNICEF 0.34, World Bank 0.24, UNHCR 0.88, as displayed on the leaderboard). Code, the exact submitted archive and all evaluation scripts are released.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Imputing or simulating survey responses is a long-standing problem in official statistics~\citep{rubin1987multiple,andridge2010hotdeck,vanbuuren2011mice}, now revisited with machine-learned predictors and with language models as simulated respondents. SimulacraBench~\citep{simulacrabench2026} evaluates it on three real humanitarian and development surveys (UNICEF, World Bank, UNHCR): a submission receives a frame in which some respondents are complete and others show only their background (\texttt{GIVEN}) fields, and returns a probability vector for every blank cell. The score is the mean log probability of the realised answer after a small floor, normalised by the log score of the visible marginal (``skill'', 0 for the crowd marginal). Code runs offline in a container with a wall-clock limit shared by the three instruments.
+
+Two features of the task drive our design. First, a scored respondent offers nothing but background fields, so the problem decomposes into hundreds of conditional density estimates from 7--17 categorical fields; nothing learned about one question can be conditioned on at prediction time for another. Second, many questions sit behind skip logic, and the declared logic is not a constraint the delivered rows obey: the organizers report agreement between a declared gate and who holds a value with median 0.83 and range 0.29--0.98 on one instrument. Methods that impose the declared gate can therefore be confidently wrong.
+
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item A cross-fitted stacking system for survey completion (\S\ref{sec:method}) whose gated questions are stacked through an exact factorisation of the log score (Proposition~\ref{prop:fact}), with gate recalibration that learns skip behaviour from the data and never imposes declared logic.
+\item A paired ablation protocol (\S\ref{sec:protocol}) that fits experts once and re-stacks under each variant, removing expert-fit variance from every comparison; we verify that the full variant reproduces the submitted code's predictions exactly.
+\item Ablations on a real public survey, synthetic mechanism tests and the organizer sandboxes (\S\ref{sec:ablation}), and a comparison with our earlier four-expert ensemble.
+\item An analysis of the development leaderboard's resolution (\S\ref{sec:leaderboard}): bucket widths derived from the scoring code, the size of effects one can hope to see, and a record of fourteen development submissions including a large negative result.
+\end{enumerate}
+
+\section{Related work}
+\label{sec:related}
+
+\paragraph{Stacking and cross-fitting.} Stacked generalisation~\citep{wolpert1992stacked,breiman1996stacked} and the Super Learner~\citep{vanderlaan2007super} combine base learners with weights fitted on cross-validated predictions; constraining weights to the simplex makes the combination a mixture, which suits log loss. Cross-fitting, i.e. using out-of-fold nuisance estimates, is standard in debiased estimation~\citep{chernozhukov2018double}. We stack per question with shrinkage toward instrument-pooled weights, a form of partial pooling across related prediction tasks.
+
+\paragraph{Calibration.} Isotonic regression~\citep{zadrozny2002transforming} and temperature scaling~\citep{guo2017calibration} are common post-hoc calibrators. We apply isotonic regression to the gate probability only, smooth each block toward its input, and accept the map per question by a cross-check, because unconstrained isotonic maps overfit small blocks.
+
+\paragraph{Proper scoring.} The log score is strictly proper~\citep{gneiting2007strictly}; its additivity over factorised events (here, ``asked'' and ``answer'') makes the separate fitting of the two parts exact rather than approximate.
+
+\paragraph{Missing data and imputation.} Hot-deck and nearest-neighbour imputation~\citep{andridge2010hotdeck} and chained equations~\citep{vanbuuren2011mice} target plausible values under missing-at-random assumptions; here the target is a full predictive distribution scored by a proper rule, and the ``missing'' respondents are a random sample by design.
+
+\paragraph{Tabular foundation models.} In-context tabular models predict from labelled context rows without gradient training~\citep{hollmann2025tabpfn}. We use one such model (Kumo Tabular,~\citealp{kumo2026}) as a validated expert, not as the backbone.
+
+\paragraph{Leaderboards and adaptive overfitting.} Repeated leaderboard queries leak holdout information~\citep{dwork2015reusable,blum2015ladder}; SimulacraBench answers that with Laplace noise and rounding in the development phase and an exact one-shot test phase. We quantify the cost of that defence for method selection.
+
+\section{Problem setup}
+\label{sec:setup}
+
+An instrument has \texttt{GIVEN} fields $x\in\mathcal{X}$ and $J$ questions; question $j$ has $K_j$ options, the last one being a sentinel $\bot$ (``not asked'') if the question is gated. Visible respondents $i=1,\dots,n$ show $(x_i,y_{i1},\dots,y_{iJ})$; scored respondents show $x$ only. A submission returns $p_{ij}\in\Delta^{K_j-1}$ for every scored cell. With floor $\varepsilon=10^{-3}$ the scorer uses $\tilde p = \varepsilon + (1-K_j\varepsilon)p$, and
+\begin{equation}
+\mathrm{LS} = \frac{1}{|\mathcal{C}|}\sum_{(i,j)\in\mathcal{C}} \log \tilde p_{ij}(y_{ij}),\qquad
+\mathrm{skill} = 1 + \mathrm{LS}/M,
+\end{equation}
+where $M$ is the mean surprisal of the visible marginal on the scored cells. The overall score is the mean of the three instruments' skills. Development scores the DEV respondents of each instrument with Laplace noise ($\epsilon=10$) on a uniform-reference scale, rounds to $0.01$ there, and converts back; Test scores TEST respondents (never seen in Development) exactly, once per team. TRAIN, DEV and TEST are random draws from the same population.
+
+\begin{proposition}[Gate factorisation]
+\label{prop:fact}
+Write a prediction for a gated question as $p=((1-g)\,c,\;g)$ with $g\in[0,1]$ and $c\in\Delta^{K-2}$. Without the floor, the cell log loss is $-\log g$ if $y=\bot$ and $-\log(1-g)-\log c_y$ otherwise. Hence the mean loss over rows is $L_{\mathrm{gate}}(g)+L_{\mathrm{ans}}(c)$, where $L_{\mathrm{gate}}$ depends only on $g$ and the asked/skipped indicator of all rows, and $L_{\mathrm{ans}}$ depends only on $c$ and the asked rows. Minimising over any parameterisation in which $g$ and $c$ share no parameters therefore separates into two independent problems.
+\end{proposition}
+\begin{proof}
+Immediate from $\log p_y = \log(1-g)+\log c_y$ for $y\ne\bot$ and $\log p_\bot=\log g$. With the floor, $\tilde p$ is affine in $p$, so the separation is approximate; at $\varepsilon=10^{-3}$ the cross term is negligible for all but near-zero probabilities, and we report scores with the exact floored rule throughout.
+\end{proof}
+
+A practical consequence: a stack that mixes full probability vectors (``direct'' stacking) couples the gate and the answer through a single weight vector, so an expert that is good at predicting who is asked but poor at the answer cannot receive weight for one part without the other. The factorised stack avoids this, and lets dedicated gate-only and answer-only experts enter.
+
+\section{Method}
+\label{sec:method}
+
+\paragraph{Features.} Each \texttt{GIVEN} field is integer-coded from the schema's option list. Fields whose levels are mostly numbers or bands also get a numeric companion (band midpoint; lower bound of an open band), and groups of three or more count fields sharing a level list (a household roster) get their total. No respondent identifier, weight, question text or answer field is a feature.
+
+\paragraph{Experts.} All are fitted on visible rows only: LightGBM~\citep{ke2017lightgbm} and CatBoost~\citep{prokhorenkova2018catboost} multiclass models per question; a multitask network with field embeddings, two 256-unit layers, a softmax head per question and a gate head; a multinomial logit fitting all questions as one linear map; empirical-Bayes tables, choosing per question between a one-field or two-field Dirichlet-smoothed table, a tempered naive-Bayes product of the best single tables, or the marginal, on an inner split; and two kernel neighbour estimators that weight a visible row by $\beta^{d(x,x_i)}$, where $d$ counts differing fields and $\beta\in\{0.1,0.3\}$, smoothed by 0.02 pseudo-rows of the marginal. For gated questions we add one binary LightGBM per distinct skip pattern (questions whose skip indicators coincide on all visible rows share a model), and LightGBM and logit answer models fitted on asked rows only. The visible marginal is always a candidate.
+
+\paragraph{Cross-fitting.} Visible rows are split into $K$ random folds; each expert is fitted $K$ times to predict its held-out fold, then once on all visible rows to predict scored rows. Data-dependent choices (table type; network epochs, by early stopping on a 12\% split of the first fold) are made inside training folds.
+
+\paragraph{Stacking.} For an ungated question, $p=\sum_m w_m p_m + w_0\pi$ with $w$ on the simplex. For a gated question the gate stack mixes every expert's sentinel probability, the binary gate model and the marginal skip rate, and is fitted on all rows; the answer stack mixes the renormalised non-sentinel parts of every direct expert, the asked-only experts and the asked marginal, and is fitted on asked rows (Proposition~\ref{prop:fact}). Weights minimise the floored out-of-fold log loss (SLSQP) plus $\lambda\|w-\bar w\|^2$, where $\bar w$ are weights pooled over all questions of the instrument ($\lambda=0.004$; $0.02$ for answer stacks with at most 400 asked rows). A temperature from $\{0.8,\dots,1.5\}$ is chosen per question with a small log-penalty.
+
+\paragraph{Gate recalibration.} A convex mixture is never sharper than its sharpest member, yet structurally determined skips deserve near-certain gates. We fit isotonic regression of the skip indicator on the stacked out-of-fold gate probability over at most 300 quantile bins, and smooth each pooled block of $n$ rows, mean input $x$ and rate $r$ to $(nr+0.5+x)/(n+2)$: a pure block of thousands of rows yields a probability of order $1/(2n)$, never 0 or 1. The map is used for a question only if, fitted on one half of the out-of-fold rows and evaluated on the other, it lowers the loss in both directions by more than $2\cdot10^{-4}$ nats per row on average. The declared gate is never imposed.
+
+\paragraph{Pretrained tabular model.} On the two smaller instruments, Kumo Tabular (Small) predicts a validation subset of the visible rows from the rest; a mixture weight and temperature against the stack are chosen on that subset per question family with shrinkage and may be zero, then applied to the scored rows. On UNHCR it is cross-fitted under a time cap and enters the stack as one more expert; a failure is logged and leaves the stack unchanged.
+
+\paragraph{Budget control.} The container gives one wall-clock limit for three \texttt{predict} calls. At import a clock starts; each call receives a share of the remaining budget by fixed work weights, times every expert on a sample of rows and questions on the host, and picks the first plan that fits from an ordered list (all experts; then dropping the most expensive), with the largest $K\le5$. The chosen plan and measured times are logged. A selected expert that fails raises; only the optional UNHCR Kumo pass may fail silently.
+
+Full hyperparameters are in Appendix~\ref{app:config}.
+
+\section{Evaluation protocol}
+\label{sec:protocol}
+
+We cannot access the competition microdata, so every offline number below uses the organizers' own sampler and scorer on substitute data, kept in three groups.
+
+\paragraph{Real survey (GSS).} From the 2022 General Social Survey~\citep{gss2022} (4,149 respondents) we build three studies with disjoint sets of 70 questions each (questions with 2--9 substantive codes and at least 400 valid answers, drawn at random with a fixed seed), 14 background fields (age and income bands, sex, race, degree, marital status, region, work status, children, birthplace, religion, ballot, form, mode), the survey's ``inapplicable'' code as the gate sentinel, and a random 3,000/600 split into visible and scored respondents, drawn afresh per study (the remaining 549 are unused). Skip patterns here are real.
+
+\paragraph{Mechanism simulators.} Data in the shape of the UNHCR schema (45--50 questions, 2,600--4,000 visible, 600 scored), generated with weak demographic signal plus unobserved traits. \emph{Gate-A/B/C}: gates obeyed at random rates in the organizers' reported range, with 50\%, 0\% and 50\% of gates determined by \texttt{GIVEN} fields, and in C the remaining gates obeyed exactly. \emph{Twin}: 39\% of rows re-interview an earlier household in a second round (identical background except the round field, shared traits, about 75\% of answer draws shared), with roles assigned at random; \emph{Twin-HH}: the same, but both rounds of a household share a role, so scored rows never have a visible twin. An earlier variant (\emph{Twin-0}, used once in Table~\ref{tab:mech}) had 40\% twins with less concentrated profiles. Simulators test behaviour, not leaderboard score.
+
+\paragraph{Organizer sandboxes.} \texttt{make\_sandbox.py} outputs at the declared row counts of each instrument (one hidden trait, gates obeyed exactly).
+
+\paragraph{Paired re-stacking.} For every dataset we fit each expert once ($K=5$, full expert set forced by a fixed budget so that the plan does not depend on timing; Kumo off, as no GPU was available) and then run the stacking stage under each of fifteen variants. Every variant thus sees identical out-of-fold and scored-row expert predictions, and differences reflect the stacking design alone; dropping an expert removes its columns, which is exactly what fitting without it would give because experts are fitted independently. We checked that the ``full'' variant reproduces the submitted code's per-cell log probabilities exactly (maximum absolute difference 0). Confidence intervals are 2,000-sample respondent-cluster bootstraps of the per-cell difference in log score.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Against our earlier ensemble}
+Our previous system (two networks, LightGBM, CatBoost, empirical-Bayes tables, one blend fitted on at most 950 held-out rows) is the natural baseline. Table~\ref{tab:v81} compares it with the first version of the present system (without kernel neighbours and Kumo), each run end to end.
+
+\begin{table}[t]
+\centering\small
+\caption{Earlier four-expert ensemble (V81) against the cross-fitted factorised stack (F1, no kernel neighbours, Kumo off), end-to-end runs. $\Delta$ = gain in mean log score per cell (nats); 95\% respondent-bootstrap intervals.}
+\label{tab:v81}
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & V81 skill & F1 skill & $\Delta$ (95\% CI) & V81 / F1 time \\
+\midrule
+GSS-1 & 0.4120 & 0.4195 & $+0.0074$ [$+0.0057$, $+0.0091$] & 1{,}013 / 89 s \\
+GSS-2 & 0.4635 & 0.4747 & $+0.0108$ [$+0.0088$, $+0.0129$] & 1{,}034 / 370 s \\
+GSS-3 & 0.4373 & 0.4433 & $+0.0060$ [$+0.0039$, $+0.0079$] & 976 / 335 s \\
+Gate-A & 0.2191 & 0.2242 & $+0.0049$ [$+0.0029$, $+0.0071$] & 881 s / -- \\
+Gate-B & 0.1175 & 0.1200 & $+0.0023$ [$-0.0002$, $+0.0047$] & 1{,}082 s / -- \\
+Gate-C & 0.2391 & 0.2455 & $+0.0056$ [$+0.0038$, $+0.0077$] & 972 s / -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\input{v81_vs_f5.tex}
+
+\subsection{Ablations}
+\label{sec:ablation}
+\input{../report/ablation_appendix.tex}
+\input{ablation_discussion.tex}
+
+\subsection{Mechanism tests of individual additions}
+\label{sec:mechanism}
+Several additions were motivated by hypotheses about the real data that we could not check directly. Table~\ref{tab:mech} records the paired tests that decided whether they entered a submission. Two are instructive negatives. A kernel expert with one learned mismatch weight per field, tuned by leave-one-out loss on visible rows (F7), looked better out-of-fold than it was: its leave-one-out loss was 0.751 against a held-out 0.762 (the marginal's gap was 0.003), the stack gave it weight 0.69, and the held-out score fell by $0.0084$\nats per cell. Any expert tuned on the rows that the stacker later uses must be tuned in nested folds. And cross-round matching (twin experts) helped only when visible and scored rows can be twins; when roles are assigned per household (Twin-HH), visible rows find twins in other folds but scored rows never do, which inflates the out-of-fold value of every flexible expert. Household-grouped folds, switched on by a detector that compares how often visible and hidden rows have a cross-round match, recovered $+0.0117$\nats per cell in that setting and left the random-role setting unchanged.
+
+\begin{table}[t]
+\centering\small
+\caption{Paired tests that decided additions to the submitted line (same expert plan; $\Delta$ in nats per cell, positive = addition helps).}
+\label{tab:mech}
+\begin{tabular}{llrr}
+\toprule
+Addition & Dataset & $\Delta$ & 95\% CI \\
+\midrule
+Kernel neighbours (F1$\to$F2) & Twin-0 & $+0.0383$ & [$+0.0334$, $+0.0433$] \\
+ & GSS-1 & $+0.0012$ & [$+0.0007$, $+0.0017$] \\
+Kumo Small in stack (CPU) & GSS-1 & $+0.0065$ & [$+0.0052$, $+0.0078$] \\
+Kumo cross-fitted vs blended & GSS-1 & $+0.0003$ & [$-0.0005$, $+0.0012$] \\
+Twin experts (F6) & Twin & $+0.0072$ & [$+0.0052$, $+0.0093$] \\
+ & GSS-1 & $+0.0001$ & [$-0.0002$, $+0.0003$] \\
+Learned-metric kernel (F7, rejected) & Twin & $-0.0084$ & [$-0.0102$, $-0.0065$] \\
+ & GSS-1 & $-0.0000$ & [$-0.0001$, $+0.0000$] \\
+Household-grouped folds (H1) & Twin-HH & $+0.0117$ & [$+0.0082$, $+0.0150$] \\
+ & Twin & $0$ & (detector off) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{What the development leaderboard could resolve}
+\label{sec:leaderboard}
+In Development a score is converted to a uniform-reference scale, receives Laplace noise of scale $-\log\varepsilon/(n_{\mathrm{dev}}\,U\,\epsilon)$, is rounded to 0.01 and converted back. From the schemas, the uniform reference $U$ and the DEV sizes give the widths in Table~\ref{tab:buckets}: one displayed step is 0.013--0.020\nats per cell, while the noise scale is under a tenth of a step. A method change that improves the true log score by $\delta$ flips the displayed bucket with probability about $\delta/\text{width}$ if the true score is equally likely anywhere in its bucket. Our largest verified real-data gain (0.011\nats, Table~\ref{tab:v81}) would show on UNHCR with probability about 0.85 at best, and the typical gains of 0.001--0.007\nats with probability 0.1--0.6, assuming gains of that size carried over to UNHCR. A single development submission was thus a weak test of any change we could make, and a one-bucket move in either direction was weak evidence.
+
+\begin{table}[t]
+\centering\small
+\caption{Development leaderboard resolution per instrument, from the public schemas and \texttt{score.py}. Width = one displayed step of 0.01 uniform-reference skill, in nats per cell.}
+\label{tab:buckets}
+\begin{tabular}{lrrrrrr}
+\toprule
+Instrument & Questions & Gated & $n_{\mathrm{dev}}$ & $n_{\mathrm{test}}$ & $U$ (nats) & Width (nats/cell) \\
+\midrule
+UNICEF & 12 & 7 & 1{,}488 & 3{,}473 & 1.562 & 0.0156 \\
+World Bank & 76 & 30 & 520 & 1{,}212 & 2.018 & 0.0202 \\
+UNHCR & 213 & 156 & 621 & 1{,}449 & 1.262 & 0.0126 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:devhist} lists our development submissions of this line. Three observations follow. (a) World Bank alternated between two adjacent buckets (0.2486 and 0.2335) across submissions whose World Bank code path was byte-identical (F5, F6, H1); with noise scale below 0.001, this means the true score sits close to a bucket edge, or GPU-side Kumo outputs varied between runs, and either way adjacent-bucket differences on that instrument carried no information. (b) UNHCR rose one bucket (0.8457$\to$0.8650) when the kernel neighbour experts were added (F3 onwards; F2 was not scored separately, and F4 shows that Kumo on UNHCR most likely never ran in F3), and two later additions involving cross-round matching (F6, G1) each lost exactly that bucket; household-grouped folds (H1) restored it. We read this as weak, consistent evidence, not proof. (c) Hosted runtimes of 22--53\,s, against a 900\,s limit, show that the container is much faster than our CPU workstation, so the time-adaptive plan selected the full expert set there.
+
+\begin{table}[t]
+\centering\small
+\caption{Development-phase results of the submitted line, from the returned scoring files. ``Same'' marks identical values to every digit.}
+\label{tab:devhist}
+\begin{tabular}{llrrrrr}
+\toprule
+Entry & Change & Overall & UNHCR & UNICEF & World Bank & Time \\
+\midrule
+F1 (2 archives)\textsuperscript{a} & cross-fitted factorised stack & 0.4764 / 0.4814 & 0.8457 & 0.3499 & 0.2335 / 0.2486 & 30 / 53 s \\
+F3 & + kernel neighbours, Kumo on UNHCR & 0.4878 & 0.8650 & 0.3499 & 0.2486 & 36 s \\
+F4 & Kumo as cross-fitted UNHCR expert & same & same & same & same & 34 s \\
+F5 (submitted) & Kumo fallback ladder & same & same & same & same & 49 s \\
+F6 & + twin experts & 0.4764 & 0.8457 & 0.3499 & 0.2335 & 23 s \\
+G1 & + kernel family & 0.4814 & 0.8457 & 0.3499 & 0.2486 & 45 s \\
+H1 & + household-grouped folds & 0.4828 & 0.8650 & 0.3499 & 0.2335 & 25 s \\
+\bottomrule
+\multicolumn{7}{l}{\footnotesize \textsuperscript{a} Two archives (with and without Kumo) were uploaded; which score belongs to which was not recorded.}
+\end{tabular}
+\end{table}
+
+\paragraph{A large negative result.} An earlier entry of ours propagated declared gates through the question graph, giving 95\% of the mass to the declared parent's skip state. On six synthetic paired splits with strictly obeyed gates it improved the mean loss by 0.0026\nats and won four of six. In Development its UNHCR skill fell from 0.846 to 0.556, a drop of about 15 buckets. The organizers' later description of UNHCR (gate agreement 0.29--0.98, branches that follow a different parent than declared) explains it, and it motivated the rule that the present system learns skip behaviour only from rows. Synthetic data that obey the declared structure reward exactly the assumption that fails on real data.
+
+\subsection{Test phase}
+The single test-phase submission (the F5 archive above) scored 0.49 overall, 0.34 UNICEF, 0.24 World Bank and 0.88 UNHCR as displayed on the leaderboard with two decimals. In a snapshot of 46 entries (17 November 2026), no entry displays a higher overall, UNICEF or World Bank value, 13 entries share the overall 0.49, and one entry displays a higher UNHCR value (0.89). Rankings among tied displays depend on unrounded scores we do not report here.
+
+\section{Discussion and limitations}
+\label{sec:discussion}
+
+\paragraph{What carried the method.} \input{discussion_main.tex}
+
+\paragraph{Limitations.} All offline evidence comes from one public survey family and from synthetic generators; neither reproduces the competition data. Kumo was not run on a GPU locally, and whether it covered any UNHCR question in the hosted test run is not observable, because no logs are returned. The time-adaptive plan makes results hardware-dependent. The paired protocol isolates the stacking stage; a three-seed check on one study (Table~\ref{tab:seeds}) shows expert-fit variance is small there, but we did not repeat it across splits or datasets. Finally, method selection used a leaderboard whose resolution, as shown above, was coarse relative to the effects at stake; our final choice rests on offline paired evidence and a single exact test.
+
+\paragraph{Broader impact.} The surveys concern refugees, children and labour markets. The method predicts aggregate-quality distributions from background fields and does not identify respondents; we used no record linkage, no hidden labels and no leaderboard probing, and we release no microdata. Predicted answers must not be read as individual responses.
+
+\section{Reproducibility statement}
+The repository contains the exact submitted files, a script that rebuilds the uploaded archive byte for byte (SHA-256 \texttt{07e4ba37\ldots c76f75}, Python 3.13), the ablation build (one modified \texttt{main.py}), dataset builders with the exact seeds, the sweep and table scripts, and per-cell log-probability files for every reported comparison. The GSS 2022 file is public from NORC; the organizers' starter kit is public (MIT).
+
+\bibliography{refs}
+\bibliographystyle{tmlr}
+
+\appendix
+\section{Full configuration}
+\label{app:config}
+\input{../report/config_appendix.tex}
+
+\section{Ablation intervals}
+\label{app:ci}
+Per-variant, per-dataset intervals are in \texttt{results/ablation\_full.csv}; Table~\ref{tab:ablation-ci} repeats the main-text sets with intervals.
+\input{ablation_ci.tex}
+
+\section{Expert-fit seed check}
+\input{seed_table.tex}
+
+\end{document}

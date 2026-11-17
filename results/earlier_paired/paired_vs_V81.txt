@@ -1,0 +1,6 @@
+gss0 V81->F1: nll_a 0.58421 nll_b 0.57681  delta(b-a logscore) +0.00740  95%CI [+0.00573, +0.00908]  rel 1.27%  respondents 600
+gss1 V81->F1: nll_a 0.51839 nll_b 0.50760  delta(b-a logscore) +0.01079  95%CI [+0.00882, +0.01285]  rel 2.08%  respondents 600
+gss2 V81->F1: nll_a 0.56162 nll_b 0.55562  delta(b-a logscore) +0.00600  95%CI [+0.00394, +0.00785]  rel 1.07%  respondents 600
+unhcr_A V81->F1: nll_a 0.74563 nll_b 0.74076  delta(b-a logscore) +0.00488  95%CI [+0.00285, +0.00710]  rel 0.65%  respondents 600
+unhcr_B V81->F1: nll_a 0.83389 nll_b 0.83155  delta(b-a logscore) +0.00234  95%CI [-0.00018, +0.00473]  rel 0.28%  respondents 600
+unhcr_C V81->F1: nll_a 0.67131 nll_b 0.66570  delta(b-a logscore) +0.00562  95%CI [+0.00377, +0.00772]  rel 0.84%  respondents 600

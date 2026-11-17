@@ -1,0 +1,2 @@
+nll_a 0.67089 nll_b 0.66370  delta(b-a logscore) +0.00720  95%CI [+0.00522, +0.00929]  rel 1.07%  respondents 600
+nll_a 0.57619 nll_b 0.57615  delta(b-a logscore) +0.00005  95%CI [-0.00019, +0.00031]  rel 0.01%  respondents 600

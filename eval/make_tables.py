@@ -97,13 +97,12 @@ def table(keys, ci, caption, label, size):
     return '\n'.join(out) + '\n'
 
 
-main_keys = ['real_gss0', 'real_gss1', 'real_gss2', 'sim_unhcr_A', 'sim_twin_D', 'sandbox_unhcr']
+main_keys = ['real_gss0', 'real_gss1', 'real_gss2', 'sim_unhcr_A', 'sim_twin_C', 'sim_twin_D']
 open(os.path.join(dst, 'ablation_main.tex'), 'w').write(table(
     main_keys, False,
-    r'Paired ablations of the submitted stack (Kumo off, identical expert fits). Entries are the change in '
-    r'mean log score per scored cell, in milli-nats, when the component is removed; negative means the '
-    r'component helps. Bold: 95\% respondent-bootstrap interval excludes zero. GSS: real survey; Gate/Twin: '
-    r'synthetic mechanism tests; SB: organizer sandbox. Not leaderboard numbers.',
+    r'Paired ablations (Kumo off, identical expert fits): change in mean log score per cell, milli-nats, '
+    r'when the component is removed (negative = it helps; bold: 95\% bootstrap interval excludes 0). '
+    r'GSS: real survey; Gate/Twin: synthetic (Appendix~B).',
     'tab:ablation', r'\scriptsize'))
 open(os.path.join(dst, 'ablation_appendix.tex'), 'w').write(table(
     [k for k, _ in DATA], False,
@@ -111,3 +110,7 @@ open(os.path.join(dst, 'ablation_appendix.tex'), 'w').write(table(
     r'interval excludes zero). Intervals are listed in \texttt{results/ablation\_full.csv}.',
     'tab:ablation-all', r'\tiny'))
 print(json.dumps({k: {'skill': e['skill_full'], 'n_var': len(e['variants'])} for k, e in res.items()}, indent=0))
+open(os.path.join(dst, 'ablation_ci.tex'), 'w').write(table(
+    ['real_gss0', 'real_gss1', 'real_gss2'], True,
+    r'Ablations on the three real-survey studies with 95\% respondent-bootstrap intervals (milli-nats per cell, '
+    r'variant minus full stack).', 'tab:ablation-ci', r'\scriptsize'))

@@ -1,0 +1,210 @@
+%% SimulacraBench Technical Report Template
+%% NeurIPS 2026 Competition Track
+%%
+%% Requirements
+%%   * Main text: at most 4 pages (Sections 1--7). References and Appendix are unbounded.
+%%   * Keep the section skeleton and order; a section may be short but must not be removed.
+%%     Subsections marked "if applicable" may be replaced by a single sentence saying so.
+%%   * All numbers in Section 3 must match your team's test-phase Codabench leaderboard entry.
+%%   * Reports that do not allow the results to be reproduced may lead to rejection of the
+%%     submission and ineligibility for the prize.
+%%   * Teams with strong write-ups may be invited to present at a (hybrid) poster session at NeurIPS 2026.
+%%
+%% Style file: neurips_2026.sty (download from https://neurips.cc/Conferences/2026/PaperInformation/StyleFiles)
+%% The [final] option produces the non-anonymous layout used for (single-blind) competition reports. There will not be a camera-ready revision.
+
+\documentclass{article}
+\usepackage[final]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+
+%% Fill in the team ID below; it is printed in the header block.
+\newcommand{\teamid}{\textcolor{red}{TEAM ID (as on codabench leaderboard)}}
+
+\newcommand{\cbox}{$\square$}
+\newcommand{\cboxchecked}{$\boxtimes$}
+
+\title{SimulacraBench Technical Report:\\ \textcolor{red}{Method Title}}
+
+\author{%
+  First Author\thanks{Equal contribution.}\\
+  Affiliation\\
+  \texttt{first@example.org}
+  \And
+  Second Author\footnotemark[1]\\
+  Affiliation\\
+  \texttt{second@example.org}
+  \And
+  Third Author\\
+  Affiliation\\
+  \texttt{third@example.org}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\begin{tabular}{l}
+\toprule
+\textbf{Team ID:} \teamid \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{abstract}
+  One paragraph, at most 200 words. State the core idea of your method, the main components or models it relies on, and your test-phase score on the primary metric.
+\end{abstract}
+
+%% ---------------------------------------------------------------------------
+\section{Method summary}
+\label{sec:method}
+
+\subsection{Method type}
+Mark every category that applies; the categories are not mutually exclusive. A one-line description of each marked component follows in Section~\ref{sec:pipeline}.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{@{}clcl@{}}
+    \toprule
+    \cbox & LLM-simulated respondents (prompting, personas) & \cbox & Fine-tuned language model \\
+    \cbox & Tabular / conditional generative model (e.g.\ VAE, diffusion, GAN, CTGAN) & \cbox & Supervised prediction (GBDT, neural net, linear/GLM) \\
+    \cbox & Bayesian / hierarchical / multilevel model & \cbox & Small-area estimation or post-stratification (e.g.\ MRP) \\
+    \cbox & Reweighting, raking, or calibration of the released sample & \cbox & Imputation / matching / nearest-neighbour \\
+    \cbox & Retrieval over released or external microdata & \cbox & Agent-based or mechanistic simulation \\
+    \cbox & Ensemble or stacking of multiple components & \cbox & Other: \textcolor{red}{specify} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Pipeline}
+\label{sec:pipeline}
+Describe the method end to end, from the released inputs to the predicted quantities scored by the benchmark. A pipeline figure is encouraged. Cite prior work the method builds on.
+
+\subsection{Inputs and feature construction}
+Which released variables (respondent covariates, survey design variables, weights, geographic identifiers, question text and metadata) does the method consume? Which are ignored, and why? Describe any feature engineering, encoding of question text, or construction of synthetic units (e.g.\ personas, strata, synthetic households).
+
+\subsection{Model or simulator}
+Specify the core component(s): architecture or model family, parameter counts or pretrained checkpoints, prompting scheme or likelihood/loss, priors, and any structural assumptions (independence across questions, exchangeability within strata, etc.).
+
+\subsection{Fitting, training, or prompting}
+If anything is learned or tuned: objective, data used (which SimulacraBench splits, which external data), optimiser and schedule or sampler, early-stopping or model-selection rule. If nothing is learned (pure prompting or a fixed estimator), state so and give the decoding or estimation settings.
+
+\subsection{Prediction and aggregation}
+How are the scored outputs produced from the model? For simulators: number of simulated units per cell, sampling temperature, and the aggregation rule. For estimators: the estimand, the aggregation over strata or units, and treatment of survey weights. For ensembles: the combination rule and how weights were chosen.
+
+\subsection{Post-processing and calibration (if applicable)}
+Any reweighting, isotonic or temperature calibration, clipping, smoothing, or imputation of missing cells applied after prediction, and the data it was fit on.
+
+%% ---------------------------------------------------------------------------
+\section{Models, data, and compute}
+\label{sec:resources}
+
+\paragraph{Pretrained models and off-the-shelf components.} Table~\ref{tab:models} lists every pretrained model, embedding model, LLM judge, or external software component with non-trivial modelling content. Give exact checkpoint names. Write ``None'' if the method uses no pretrained components.
+
+\begin{table}[h]
+  \centering
+  \caption{Pretrained models and off-the-shelf components.}
+  \label{tab:models}
+  \begin{tabular}{lll}
+    \toprule
+    Component & Version / checkpoint & Role in pipeline  \\
+    \midrule
+    \textcolor{red}{name} & \textcolor{red}{version} & \textcolor{red}{role} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Data.} State which SimulacraBench splits were used for development. External datasets are permitted; list every one used in Table~\ref{tab:external}, with source, size, licence, and how it entered the pipeline. The list must match the \texttt{external\_data} field of the OpenReview form.
+
+\begin{table}[h]
+  \centering
+  \caption{External datasets used (write ``None'' if not applicable).}
+  \label{tab:external}
+  \begin{tabular}{llll}
+    \toprule
+    Dataset & Source / URL & Size & Use in pipeline \\
+    \midrule
+    \textcolor{red}{name} & \textcolor{red}{url} & \textcolor{red}{N rows} & \textcolor{red}{training / retrieval / priors / \ldots} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+%% ---------------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\subsection{Test-phase leaderboard results}
+Report the official metrics for your team's test-phase entry. Do not report numbers that are not on the leaderboard in this subsection.
+
+\begin{table}[h]
+  \centering
+  \caption{Official SimulacraBench test-phase results for team \teamid. Metric names must match the leaderboard.}
+  \label{tab:results}
+  \begin{tabular}{lrrr}
+    \toprule
+    Split & Primary metric & Secondary metric 1 & Secondary metric 2 \\
+    \midrule
+    Development & \textcolor{red}{0.000} & \textcolor{red}{0.000} & \textcolor{red}{0.000} \\
+    Test        & \textcolor{red}{0.000} & \textcolor{red}{0.000} & \textcolor{red}{0.000} \\
+    Organizer baseline (test) & \textcolor{red}{0.000} & \textcolor{red}{0.000} & \textcolor{red}{0.000} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Breakdown by population, survey, or question type}
+Where the leaderboard exposes per-population, per-country, per-survey, or per-question-type scores, report them here and comment on where the method does worst.
+
+%% ---------------------------------------------------------------------------
+\section{Reproducibility}
+\label{sec:repro}
+
+This section is mandatory. A report that does not allow the organizers to reproduce the test-phase results may lead to rejection of the submission and ineligibility for the prize.
+
+\begin{itemize}[leftmargin=*]
+  \item Code repository: \url{https://github.com/...} (licence: \textcolor{red}{MIT / Apache-2.0 / \ldots})
+  \item Commit hash used for the test-phase submission: \texttt{\textcolor{red}{abc1234}}
+  \item Command to reproduce the test-phase submission file from the released data: \texttt{\textcolor{red}{make test}}
+  \item Environment: language and library versions, or a container/lockfile path in the repository.
+  \item Pretrained weights or API models required, and whether they are still obtainable.
+\end{itemize}
+
+%% ---------------------------------------------------------------------------
+\section{Limitations}
+\label{sec:limitations}
+
+Two or three sentences on what the method cannot do and where its scores should not be trusted.
+
+%% ---------------------------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+%% ---------------------------------------------------------------------------
+\clearpage
+\appendix
+
+\section{Full configuration}
+Everything needed to re-run the method without reading the code. Include whichever apply:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Prompts:} every prompt template used in the test-phase submission, verbatim, including system prompts, few-shot examples, and output-parsing rules.
+  \item \textbf{Model specification:} full likelihood, priors, and hyperpriors for Bayesian models; architecture tables for neural models; feature lists and encoders for tree-based or linear models.
+  \item \textbf{Hyperparameters:} full tables for every trained, tuned, or calibrated component, including the search space and selection rule.
+  \item \textbf{Estimation details:} weighting, post-stratification cells, variance estimation, and convergence diagnostics where relevant.
+\end{itemize}
+
+\section{(Optional) Additional results}
+
+\end{document}

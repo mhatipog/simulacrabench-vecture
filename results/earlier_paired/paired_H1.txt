@@ -1,0 +1,4 @@
+H1 grouped folds vs F5 path, household-grouped simulator:
+nll_a 0.80861 nll_b 0.79694  delta(b-a logscore) +0.01167  95%CI [+0.00819, +0.01495]  rel 1.44%  respondents 600
+H1 vs F5 path, random-role simulator (detector off):
+nll_a 0.67582 nll_b 0.67582  delta(b-a logscore) +0.00000  95%CI [+0.00000, +0.00000]  rel 0.00%  respondents 600

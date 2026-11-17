@@ -1,0 +1,22 @@
+\begin{table}[h]
+\centering\small
+\caption{Expert-fit seed check on GSS-1: all experts and folds refitted with three seeds, then re-stacked. Change in mean log score per cell (milli-nats) when the component is removed. Full-stack loss: 0.57535, 0.57536, 0.57547 nats.}
+\label{tab:seeds}
+\begin{tabular}{lrrr}
+\toprule
+Variant & Seed 20261111 (submitted) & Seed 1 & Seed 2 \\
+\midrule
+no gate factorisation & $-4.31$ & $-4.70$ & $-4.63$ \\
+stack fitted on 950 rows & $-1.13$ & $-2.04$ & $-1.86$ \\
+pooled weights only & $-1.37$ & $-1.86$ & $-1.61$ \\
+$-$ CatBoost & $-0.94$ & $-1.02$ & $-0.98$ \\
+$-$ multitask net & $-0.80$ & $-0.96$ & $-0.67$ \\
+$-$ gate/answer-if-asked LightGBM & $-0.48$ & $-0.33$ & $-0.50$ \\
+no isotonic gate recalibration & $-0.43$ & $-0.63$ & $-0.41$ \\
+no temperature & $-0.27$ & $-0.31$ & $-0.33$ \\
+$-$ kernel neighbours & $+0.17$ & $+0.16$ & $+0.15$ \\
+$-$ empirical-Bayes tables & $+0.23$ & $-0.09$ & $+0.36$ \\
+single best expert & $-13.36$ & $-13.21$ & $-13.30$ \\
+\bottomrule
+\end{tabular}
+\end{table}

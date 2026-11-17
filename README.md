@@ -53,6 +53,8 @@ The hosted run used one H100, 8 CPUs, 16 GB, no network. `predict()` times every
 ## What is and is not verified
 
 - The ablation build's `full` variant gives per-cell log probabilities identical to the submitted code (maximum absolute difference 0 on the GSS check set).
+- Refitting all experts with two other seeds (`SBA_SEED=1`, `2`, ablation build only) moves the GSS-1 full-stack loss by at most 0.11 milli-nats per cell and flips no non-null ablation effect (`results/tables/seed_check_gss0.json`).
+- `results/ablation_logs/` holds the RESULT lines of every run; `results/tables/` the summaries (`ablation_summary.json`, `ablation_full.csv` with intervals) and the LaTeX tables. Per-cell log probabilities (`*.npz`, 66 MB) are attached to the GitHub release `v1.0-report`.
 - All offline numbers use the organizers' `sample_rows`, `floored`, `marginal_reference` and `score`. They are proxies (a public survey, synthetic generators and the organizer sandbox), not leaderboard scores.
 - Kumo was never run on a GPU locally. On the hosted machine the UNICEF and World Bank Kumo blend is mandatory (a failure would have failed the submission); whether the optional UNHCR Kumo pass covered any question is not observable from the returned files.
 - No competition microdata, hidden labels or leaderboard probing are used anywhere. The GSS file is used for offline validation only.
