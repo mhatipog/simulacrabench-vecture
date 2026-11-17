@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+data/
+starter-kit/
+*.zip
+!results/official/*.zip
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
