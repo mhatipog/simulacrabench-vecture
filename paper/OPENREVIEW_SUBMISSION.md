@@ -14,15 +14,13 @@ Only the author can submit: it needs your OpenReview profile (`~Your_Name1`) and
 | TL;DR | Cross-fitted per-question stacking of small survey experts, with the log score factorised into a skip term and an answer term for gated questions; 0.49 test skill. |
 | Abstract | Copy the abstract from `report/report.tex` (plain text; the form takes Markdown/TeX). |
 | PDF | `report/report.pdf` |
-| Code URL | `https://github.com/mhatipog/simulacrabench-vecture` (currently **private**; must be made public before submitting, the form asks for a public repository) |
+| Code URL | `https://github.com/mhatipog/simulacrabench-vecture` (public; submission files at commit c5cefd6, release `v1.0-report`) |
 | Code licence | MIT |
 | Base models | `nvidia/Kumo-Tabular` (small and large classifier checkpoints, Hugging Face main revision as pre-fetched by the platform; c5893d4 at time of writing) via structured-data-models 0.2.1 |
 | External data | General Social Survey 2022 cross-section (NORC at the University of Chicago, https://gss.norc.org, public Stata release, 4,149 respondents, free for research use). Used offline only, to build three validation studies of 70 questions each for model selection and ablations. Not used by, or shipped with, the submission. |
 | Data-use attestation | Your decision. Nothing in this work re-identified respondents, linked records or redistributed microdata. |
 | E-mail sharing / data release | Your decision. |
 
-## Before you submit
+## Status
 
-1. Fill `\authoremail` in `report/meta.tex`, rebuild the PDF (`tectonic report.tex`).
-2. Make the code repository public (`gh repo edit mhatipog/simulacrabench-vecture --visibility public --accept-visibility-change-consequences`) and set `\codecommit` in `meta.tex` to the release commit.
-3. Optional: download the **Test-phase** scoring output of submission 1053704 from Codabench and record the unrounded values. The files in Downloads (`scoring_result (10).zip`, `(11).zip`) are byte-identical to the 13 Nov Development F5 result, so they are not the test output.
+Author e-mail (metin@vecture.be), code commit and public repository are filled in `report/report.pdf`. Remaining: the OpenReview form itself, submitted by the author.
